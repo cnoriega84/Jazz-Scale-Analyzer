@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#111111" />
+  <title>Jazz Scale Analyzer</title>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="hero">
+    <div class="hero__content">
+      <p class="eyebrow">Browser-only jazz practice tool</p>
+      <h1>Jazz Scale Analyzer</h1>
+      <p>
+        Photograph a lead sheet, extract its chord symbols, and get practical scale choices for improvising.
+      </p>
+    </div>
+  </header>
+
+  <main class="app-shell">
+    <section class="panel upload-panel" aria-labelledby="upload-title">
+      <div class="section-heading">
+        <div>
+          <p class="step">Step 1</p>
+          <h2 id="upload-title">Add a tune image</h2>
+        </div>
+        <button id="clearButton" class="button button--ghost" type="button">Clear</button>
+      </div>
+
+      <label class="drop-zone" id="dropZone" for="imageInput">
+        <input id="imageInput" type="file" accept="image/*" capture="environment" />
+        <span class="drop-zone__icon">♪</span>
+        <strong>Take a photo or choose an image</strong>
+        <span>Best results come from clear lead sheets with chord symbols printed above the staff.</span>
+      </label>
+
+      <div class="preview-wrap" id="previewWrap" hidden>
+        <img id="imagePreview" alt="Uploaded tune preview" />
+      </div>
+
+      <div class="controls-row">
+        <label class="field field--inline">
+          <span>Image cleanup</span>
+          <select id="cleanupMode">
+            <option value="none">Original</option>
+            <option value="grayscale" selected>Grayscale + contrast</option>
+            <option value="threshold">High-contrast threshold</option>
+          </select>
+        </label>
+        <button id="analyzeImageButton" class="button button--primary" type="button" disabled>
+          Analyze image
+        </button>
+      </div>
+
+      <div id="progressPanel" class="progress-panel" hidden>
+        <div class="progress-panel__topline">
+          <span id="progressLabel">Preparing OCR…</span>
+          <span id="progressPercent">0%</span>
+        </div>
+        <progress id="ocrProgress" max="100" value="0"></progress>
+      </div>
+
+      <p class="privacy-note">
+        Processing happens in your browser. This version does not upload the image to a custom server.
+      </p>
+    </section>
+
+    <section class="panel" aria-labelledby="chords-title">
+      <div class="section-heading">
+        <div>
+          <p class="step">Step 2</p>
+          <h2 id="chords-title">Review the detected chords</h2>
+        </div>
+      </div>
+
+      <label class="field">
+        <span>OCR text / chord symbols</span>
+        <textarea
+          id="chordText"
+          rows="6"
+          spellcheck="false"
+          placeholder="Example: Dm7 | G7 | Cmaj7 | A7alt"
+        ></textarea>
+      </label>
+
+      <div class="controls-row controls-row--end">
+        <button id="exampleButton" class="button button--ghost" type="button">Load ii–V–I example</button>
+        <button id="analyzeChordsButton" class="button button--primary" type="button">Analyze chords</button>
+      </div>
+
+      <div class="detected-block">
+        <h3>Detected progression</h3>
+        <div id="detectedChords" class="chord-pills" aria-live="polite">
+          <span class="empty-state">No chords detected yet.</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel results-panel" aria-labelledby="results-title">
+      <div class="section-heading">
+        <div>
+          <p class="step">Step 3</p>
+          <h2 id="results-title">Scale recommendations</h2>
+        </div>
+      </div>
+
+      <div id="summary" class="summary" hidden></div>
+      <div id="results" class="results-grid" aria-live="polite">
+        <div class="empty-results">
+          <span>♬</span>
+          <p>Your scale choices will appear here.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel limitations-panel">
+      <h2>What this MVP can read</h2>
+      <p>
+        It is designed for lead sheets where chord names such as <strong>Cmaj7</strong>, <strong>Dm7</strong>,
+        <strong>G7alt</strong>, or <strong>Bø7</strong> appear as text. Reading notes directly from the staff is
+        optical music recognition and requires a specialized model beyond ordinary browser text OCR.
+      </p>
+    </section>
+  </main>
+
+  <template id="resultCardTemplate">
+    <article class="result-card">
+      <div class="result-card__header">
+        <div>
+          <p class="result-index"></p>
+          <h3 class="result-chord"></h3>
+        </div>
+        <span class="quality-badge"></span>
+      </div>
+      <p class="chord-formula"></p>
+      <div class="scale-list"></div>
+    </article>
+  </template>
+
+  <canvas id="processingCanvas" hidden></canvas>
+
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
