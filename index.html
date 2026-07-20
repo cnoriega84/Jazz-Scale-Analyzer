@@ -3,19 +3,26 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#111111" />
+  <meta name="theme-color" content="#1357a6" />
   <title>Jazz Scale Analyzer</title>
   <link rel="preconnect" href="https://cdn.jsdelivr.net" />
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="styles.css?v=photo-source-2" />
 </head>
 <body>
   <header class="hero">
     <div class="hero__content">
-      <p class="eyebrow">Browser-only jazz practice tool</p>
-      <h1>Jazz Scale Analyzer</h1>
-      <p>
-        Photograph a lead sheet, extract its chord symbols, and get practical scale choices for improvising.
-      </p>
+      <div class="cover-copy">
+        <p class="eyebrow">Browser-only jazz practice tool</p>
+        <h1 aria-label="Jazz Scale Analyzer">
+          <span>Jazz</span>
+          <span>Scale</span>
+          <span>Analyzer</span>
+        </h1>
+        <p class="hero__subtitle">
+          Photograph a lead sheet, extract its chord symbols, and get practical scale choices for improvising.
+        </p>
+      </div>
+      <div class="cover-art" aria-hidden="true"></div>
     </div>
   </header>
 
@@ -29,12 +36,23 @@
         <button id="clearButton" class="button button--ghost" type="button">Clear</button>
       </div>
 
-      <label class="drop-zone" id="dropZone" for="imageInput">
-        <input id="imageInput" type="file" accept="image/*" capture="environment" />
-        <span class="drop-zone__icon">♪</span>
-        <strong>Take a photo or choose an image</strong>
-        <span>Best results come from clear lead sheets with chord symbols printed above the staff.</span>
-      </label>
+      <div class="drop-zone" id="dropZone">
+        <input id="libraryInput" class="file-input" type="file" accept="image/*" />
+        <input id="cameraInput" class="file-input" type="file" accept="image/*" capture="environment" />
+
+        <label class="drop-zone__main" for="libraryInput">
+          <span class="drop-zone__icon">♪</span>
+          <strong>Add a photo of your lead sheet</strong>
+          <span>Tap here to choose from your photo library, or use the camera button below.</span>
+        </label>
+
+        <div class="image-source-actions" aria-label="Choose image source">
+          <button id="cameraButton" class="button button--primary file-action" type="button">Take photo</button>
+          <button id="libraryButton" class="button button--ghost file-action" type="button">Choose from library</button>
+        </div>
+
+        <span class="drop-zone__hint">Best results come from clear lead sheets with chord symbols printed above the staff.</span>
+      </div>
 
       <div class="preview-wrap" id="previewWrap" hidden>
         <img id="imagePreview" alt="Uploaded tune preview" />
@@ -142,6 +160,6 @@
   <canvas id="processingCanvas" hidden></canvas>
 
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-  <script src="app.js"></script>
+  <script src="app.js?v=photo-source-2"></script>
 </body>
 </html>
