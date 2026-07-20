@@ -130,13 +130,12 @@ h1 {
   display: grid;
   place-items: center;
   align-content: center;
-  gap: 10px;
+  gap: 18px;
   padding: 30px;
   border: 1.5px dashed #555b69;
   border-radius: 16px;
   background: var(--panel-soft);
   text-align: center;
-  cursor: pointer;
   transition: 160ms ease;
 }
 
@@ -146,12 +145,46 @@ h1 {
   transform: translateY(-2px);
 }
 
-.drop-zone input {
+.file-input {
   position: absolute;
   width: 1px;
   height: 1px;
+  padding: 0;
+  margin: -1px;
   overflow: hidden;
   clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.drop-zone__main {
+  display: grid;
+  place-items: center;
+  gap: 10px;
+  max-width: 680px;
+  cursor: pointer;
+}
+
+.image-source-actions {
+  width: min(100%, 500px);
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.file-action {
+  min-height: 50px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.drop-zone__hint {
+  max-width: 680px;
+  color: var(--muted);
+  font-size: 0.84rem;
+  line-height: 1.5;
 }
 
 .drop-zone__icon {
@@ -165,7 +198,7 @@ h1 {
   font-size: 2rem;
 }
 
-.drop-zone span:last-child,
+.drop-zone__main > span:last-child,
 .privacy-note,
 .limitations-panel p,
 .chord-formula {
@@ -445,6 +478,14 @@ progress {
 }
 
 @media (max-width: 640px) {
+  .image-source-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .file-action {
+    width: 100%;
+  }
+
   .hero__content {
     padding-top: 44px;
   }
