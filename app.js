@@ -177,7 +177,10 @@ const CHORD_TYPES = {
 };
 
 const elements = {
-  imageInput: document.querySelector("#imageInput"),
+  libraryInput: document.querySelector("#libraryInput"),
+  cameraInput: document.querySelector("#cameraInput"),
+  libraryButton: document.querySelector("#libraryButton"),
+  cameraButton: document.querySelector("#cameraButton"),
   dropZone: document.querySelector("#dropZone"),
   previewWrap: document.querySelector("#previewWrap"),
   imagePreview: document.querySelector("#imagePreview"),
@@ -222,32 +225,14 @@ function normalizeChordSymbol(rawSymbol) {
     .replace(/^[|:\[\]{},;]+|[|:\[\]{},;]+$/g, "")
     .replace(/\s+/g, "");
 
-  // Ignore inversion bass notes while preserving the actual chord quality.
-  // Examples: G7/B -> G7, C/E -> C.
-  symbol = symbol.replace(/\/([A-Ga-g])([#b]?)$/, "");
-
   symbol = symbol.replace(/O(?=7|$)/g, "dim");
   symbol = symbol.replace(/o(?=7|$)/g, "dim");
 
-  let match = symbol.match(/^([A-Ga-g])([#b]?)(.*)$/);
+  const match = symbol.match(/^([A-Ga-g])([#b]?)(.*)$/);
   if (!match) return null;
 
-  let root = formatRoot(match[1], match[2]);
+  const root = formatRoot(match[1], match[2]);
   let suffix = match[3] || "";
-
-  // OCR frequently reads a flat sign as the digit 6: E67 -> Eb7.
-  // Restrict this repair to common extension endings to avoid changing normal C6 chords.
-  if (!match[2] && /^6(7|9|11|13)(.*)$/i.test(suffix)) {
-    const flatRepair = suffix.match(/^6(7|9|11|13)(.*)$/i);
-    root = `${match[1].toUpperCase()}b`;
-    suffix = `${flatRepair[1]}${flatRepair[2] || ""}`;
-  }
-
-  // The printed digit 7 is commonly recognized as ?, /, T, Z, I, l, or ].
-  // Only repair these when they occupy the dominant-extension position.
-  suffix = suffix
-    .replace(/^[?\\/TtZzIil\]](?=([#b](?:5|9|11|13))|alt|sus|$)/, "7")
-    .replace(/^7[?](?=([#b](?:5|9|11|13))|alt|sus|$)/, "7");
 
   suffix = suffix
     .replace(/Major/gi, "maj")
@@ -312,93 +297,19 @@ function classifyChord(chord) {
   return null;
 }
 
-function repairDominantOcrText(text) {
-  return canonicalizeAccidentals(text)
-    // Flat roots are often split into three tokens: B b 7.
-    // Run this before other repairs so the lowercase b is not mistaken for a B root.
-    .replace(/\b([A-G])\s+([#b])\s+(7|9|11|13|6)(?=\s|[|,;:]|$)/g, "$1$2$3")
-    // Repair a lone misread 7 after a root, but do not touch slash chords such as G/B.
-    .replace(/\b([A-G][#b]?)[?\\/TtZzIil\]](?=\s|[|,;:]|$)/g, "$17")
-    // OCR sometimes places a space between the root and its extension.
-    .replace(/\b([A-G][#b]?)\s+(7|9|11|13)(?=\s|[|,;:#b()\-]|$)/g, "$1$2");
-}
-
-function isChordRootFragment(token) {
-  return /^[A-Ga-g](?:[#b])?$/.test(token);
-}
-
-function isChordSuffixFragment(token) {
-  return /^(?:m|min|maj|M|dim|o|alt|aug|sus|sus2|sus4|add|[+^\-]|\d{1,2}|[#b](?:5|9|11|13)|(?:m|min|maj|M|dim|alt|sus|add)?\d{1,2}(?:[#b](?:5|9|11|13))*)$/i.test(token);
-}
-
-function coalesceChordFragments(tokens) {
-  const combined = [];
-
-  for (let index = 0; index < tokens.length; index += 1) {
-    let token = tokens[index];
-
-    // Join alterations that OCR separates from an already complete dominant root:
-    // G7 b9 -> G7b9, C7 #11 -> C7#11.
-    if (/^[A-Ga-g][#b]?(?:7|9|11|13)$/i.test(token)) {
-      let dominantToken = token;
-      let lookahead = index + 1;
-      let alterationsAdded = 0;
-
-      while (lookahead < tokens.length && alterationsAdded < 2 && /^(?:[#b](?:5|9|11|13)|alt|sus|sus4)$/i.test(tokens[lookahead])) {
-        dominantToken += tokens[lookahead];
-        lookahead += 1;
-        alterationsAdded += 1;
-      }
-
-      combined.push(dominantToken);
-      index = lookahead - 1;
-      continue;
-    }
-
-    if (!isChordRootFragment(token)) {
-      combined.push(token);
-      continue;
-    }
-
-    let chordToken = token;
-    let lookahead = index + 1;
-
-    // Handle B b 7 or F # 7.
-    if (/^[A-Ga-g]$/.test(chordToken) && /^[#b]$/.test(tokens[lookahead] || "")) {
-      chordToken += tokens[lookahead];
-      lookahead += 1;
-    }
-
-    // Join split suffixes such as G 7, G 7 b9, D m 7, or C maj 7.
-    let fragmentsAdded = 0;
-    while (lookahead < tokens.length && fragmentsAdded < 3 && isChordSuffixFragment(tokens[lookahead])) {
-      chordToken += tokens[lookahead];
-      lookahead += 1;
-      fragmentsAdded += 1;
-    }
-
-    combined.push(chordToken);
-    index = lookahead - 1;
-  }
-
-  return combined;
-}
-
 function extractChordCandidates(text) {
-  const cleaned = repairDominantOcrText(text)
+  const cleaned = canonicalizeAccidentals(text)
     .replace(/\r/g, "\n")
     .replace(/([A-Ga-g][#b]?)(?=(?:maj|m|min|dim|aug|sus|add|alt|7|9|11|13|6|\||\s|$))/g, "$1")
-    // Keep slash characters so normalizeChordSymbol can correctly handle inversions.
-    .replace(/[|\\,;:\[\]{}()]/g, " ");
+    .replace(/[|/\\,;:\[\]{}()]/g, " ");
 
-  const rawTokens = cleaned.split(/\s+/).filter(Boolean);
-  const tokens = coalesceChordFragments(rawTokens);
+  const tokens = cleaned.split(/\s+/).filter(Boolean);
   const candidates = [];
 
   for (const token of tokens) {
     const stripped = token
       .replace(/^[^A-Ga-g]+/, "")
-      .replace(/[^A-Za-z0-9#b+\-^?/\\\]]+$/g, "");
+      .replace(/[^A-Za-z0-9#b+\-^]+$/g, "");
 
     const normalized = normalizeChordSymbol(stripped);
     if (!normalized) continue;
@@ -410,18 +321,6 @@ function extractChordCandidates(text) {
   }
 
   return candidates;
-}
-
-function scoreOcrText(text) {
-  const chords = extractChordCandidates(text);
-  const score = chords.reduce((total, chord) => {
-    if (chord.type === "dominant7" || chord.type === "alteredDominant") return total + 8;
-    if (["major7", "minor7", "halfDiminished", "diminished7", "minorMajor7"].includes(chord.type)) return total + 6;
-    if (chord.type === "major6") return total + 4;
-    return total + 1;
-  }, 0);
-
-  return { text, chords, score };
 }
 
 function prefersFlats(root) {
@@ -520,7 +419,9 @@ function analyzeChordText() {
 }
 
 function loadFile(file) {
-  if (!file || !file.type.startsWith("image/")) {
+  if (!file) return;
+
+  if (!file.type.startsWith("image/")) {
     alert("Please choose an image file.");
     return;
   }
@@ -534,75 +435,11 @@ function loadFile(file) {
   elements.previewWrap.hidden = false;
 }
 
-function calculateOtsuThreshold(pixels) {
-  const histogram = new Array(256).fill(0);
-  let pixelCount = 0;
-
-  for (let index = 0; index < pixels.length; index += 4) {
-    const gray = Math.round(0.299 * pixels[index] + 0.587 * pixels[index + 1] + 0.114 * pixels[index + 2]);
-    histogram[gray] += 1;
-    pixelCount += 1;
-  }
-
-  let totalIntensity = 0;
-  for (let value = 0; value < 256; value += 1) totalIntensity += value * histogram[value];
-
-  let backgroundWeight = 0;
-  let backgroundSum = 0;
-  let bestVariance = -1;
-  let bestThreshold = 175;
-
-  for (let value = 0; value < 256; value += 1) {
-    backgroundWeight += histogram[value];
-    if (!backgroundWeight) continue;
-
-    const foregroundWeight = pixelCount - backgroundWeight;
-    if (!foregroundWeight) break;
-
-    backgroundSum += value * histogram[value];
-    const backgroundMean = backgroundSum / backgroundWeight;
-    const foregroundMean = (totalIntensity - backgroundSum) / foregroundWeight;
-    const variance = backgroundWeight * foregroundWeight * Math.pow(backgroundMean - foregroundMean, 2);
-
-    if (variance > bestVariance) {
-      bestVariance = variance;
-      bestThreshold = value;
-    }
-  }
-
-  return Math.max(115, Math.min(215, bestThreshold));
-}
-
-function removeLongHorizontalLines(imageData, width, height) {
-  const pixels = imageData.data;
-  const rowsToClear = [];
-
-  for (let y = 0; y < height; y += 1) {
-    let darkPixels = 0;
-    for (let x = 0; x < width; x += 1) {
-      const offset = (y * width + x) * 4;
-      if (pixels[offset] < 40) darkPixels += 1;
-    }
-    if (darkPixels / width > 0.48) rowsToClear.push(y);
-  }
-
-  rowsToClear.forEach(y => {
-    for (let clearY = Math.max(0, y - 1); clearY <= Math.min(height - 1, y + 1); clearY += 1) {
-      for (let x = 0; x < width; x += 1) {
-        const offset = (clearY * width + x) * 4;
-        pixels[offset] = 255;
-        pixels[offset + 1] = 255;
-        pixels[offset + 2] = 255;
-      }
-    }
-  });
-}
-
 function getProcessedCanvas(image, mode) {
   const canvas = elements.processingCanvas;
   const context = canvas.getContext("2d", { willReadFrequently: true });
 
-  const maxDimension = 2800;
+  const maxDimension = 2200;
   const scale = Math.min(1, maxDimension / Math.max(image.naturalWidth, image.naturalHeight));
   canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
   canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
@@ -621,25 +458,12 @@ function getProcessedCanvas(image, mode) {
     if (mode === "grayscale") {
       value = Math.max(0, Math.min(255, (gray - 128) * 1.55 + 128));
     } else if (mode === "threshold") {
-      // Applied after the grayscale histogram is measured below.
-      value = gray;
+      value = gray > 175 ? 255 : 0;
     }
 
     pixels[index] = value;
     pixels[index + 1] = value;
     pixels[index + 2] = value;
-  }
-
-  if (mode === "threshold") {
-    const threshold = calculateOtsuThreshold(pixels);
-    for (let index = 0; index < pixels.length; index += 4) {
-      const gray = pixels[index];
-      const value = gray > threshold ? 255 : 0;
-      pixels[index] = value;
-      pixels[index + 1] = value;
-      pixels[index + 2] = value;
-    }
-    removeLongHorizontalLines(imageData, canvas.width, canvas.height);
   }
 
   context.putImageData(imageData, 0, 0);
@@ -663,62 +487,23 @@ async function analyzeImage() {
 
   elements.analyzeImageButton.disabled = true;
   updateProgress("Preparing image…", 0.03);
-  let worker = null;
 
   try {
     await elements.imagePreview.decode();
+    const source = getProcessedCanvas(elements.imagePreview, elements.cleanupMode.value);
 
-    worker = await Tesseract.createWorker("eng", 1, {
+    const result = await Tesseract.recognize(source, "eng", {
       logger(message) {
         if (message.status === "recognizing text") {
-          updateProgress("Reading jazz chord symbols…", 0.12 + (message.progress || 0) * 0.72);
+          updateProgress("Reading chord symbols…", message.progress || 0);
         } else {
-          updateProgress(message.status || "Preparing OCR…", Math.max(0.05, (message.progress || 0) * 0.12));
+          updateProgress(message.status || "Working…", message.progress || 0.05);
         }
-      },
-      // Chord symbols are not dictionary words. Disabling dictionary correction
-      // reduces substitutions such as G7 -> GT.
-      config: {
-        load_system_dawg: "0",
-        load_freq_dawg: "0",
-        load_number_dawg: "0",
-        load_punc_dawg: "0"
       }
     });
 
-    const psm = Tesseract.PSM || {};
-    await worker.setParameters({
-      tessedit_pageseg_mode: psm.SPARSE_TEXT || "11",
-      tessedit_char_whitelist: "ABCDEFGabcdefg0123456789#bMmajinordugsltDIMAJNORUGSLT+-^?/\\()|[] øØ°ºΔ△♭♯",
-      preserve_interword_spaces: "1",
-      user_defined_dpi: "300"
-    });
-
-    const selectedMode = elements.cleanupMode.value;
-    const alternateMode = selectedMode === "threshold" ? "grayscale" : "threshold";
-    const attempts = [];
-
-    const firstSource = getProcessedCanvas(elements.imagePreview, selectedMode);
-    const firstResult = await worker.recognize(firstSource);
-    attempts.push(scoreOcrText(firstResult?.data?.text?.trim() || ""));
-
-    updateProgress("Double-checking dominant 7 chords…", 0.86);
-    await worker.setParameters({
-      tessedit_pageseg_mode: psm.SINGLE_BLOCK || "6"
-    });
-
-    const secondSource = getProcessedCanvas(elements.imagePreview, alternateMode);
-    const secondResult = await worker.recognize(secondSource);
-    attempts.push(scoreOcrText(secondResult?.data?.text?.trim() || ""));
-
-    attempts.sort((left, right) => right.score - left.score || right.chords.length - left.chords.length);
-    const bestAttempt = attempts[0];
-
-    // Show the cleaned progression instead of noisy page text whenever chords were found.
-    elements.chordText.value = bestAttempt.chords.length
-      ? bestAttempt.chords.map(chord => chord.normalized).join(" | ")
-      : bestAttempt.text;
-
+    const text = result?.data?.text?.trim() || "";
+    elements.chordText.value = text;
     updateProgress("OCR complete", 1);
     analyzeChordText();
   } catch (error) {
@@ -726,7 +511,6 @@ async function analyzeImage() {
     updateProgress("OCR failed", 0);
     alert("The image could not be analyzed. Try a sharper crop or enter the chord symbols manually.");
   } finally {
-    if (worker) await worker.terminate().catch(() => {});
     elements.analyzeImageButton.disabled = false;
   }
 }
@@ -736,7 +520,8 @@ function clearApp() {
   if (currentObjectUrl) URL.revokeObjectURL(currentObjectUrl);
   currentObjectUrl = null;
 
-  elements.imageInput.value = "";
+  elements.libraryInput.value = "";
+  elements.cameraInput.value = "";
   elements.imagePreview.removeAttribute("src");
   elements.previewWrap.hidden = true;
   elements.analyzeImageButton.disabled = true;
@@ -751,13 +536,30 @@ window.JazzScaleAnalyzer = Object.freeze({
   normalizeChordSymbol,
   classifyChord,
   extractChordCandidates,
-  repairDominantOcrText,
-  coalesceChordFragments,
-  scoreOcrText,
   transposeIntervals
 });
 
-elements.imageInput.addEventListener("change", event => loadFile(event.target.files?.[0]));
+function handleImageSelection(event) {
+  loadFile(event.target.files?.[0]);
+}
+
+[elements.libraryInput, elements.cameraInput].forEach(input => {
+  input.addEventListener("click", () => {
+    // Ensure choosing the same image again still fires a change event.
+    input.value = "";
+  });
+  input.addEventListener("change", handleImageSelection);
+});
+
+elements.libraryButton.addEventListener("click", () => {
+  elements.libraryInput.value = "";
+  elements.libraryInput.click();
+});
+
+elements.cameraButton.addEventListener("click", () => {
+  elements.cameraInput.value = "";
+  elements.cameraInput.click();
+});
 elements.analyzeImageButton.addEventListener("click", analyzeImage);
 elements.analyzeChordsButton.addEventListener("click", analyzeChordText);
 elements.clearButton.addEventListener("click", clearApp);
